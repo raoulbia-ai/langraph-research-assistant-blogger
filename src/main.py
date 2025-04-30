@@ -355,8 +355,15 @@ def main() -> None:
                         blog_dir.mkdir(exist_ok=True)
                         filepath = blog_dir / filename
                         try:
+                            # Format the content exactly as shown in the terminal
+                            content = f"""=== Analysis ===
+{final_state.get("analysis", "No analysis generated")}
+
+=== Blog Post ===
+{final_state.get("blog_post", "No blog post generated")}
+"""
                             with open(filepath, "w") as f:
-                                f.write(final_state.get("blog_post", ""))
+                                f.write(content)
                             print(f"Blog post saved to {filepath}")
                         except Exception as e:
                             print(f"Error saving file: {str(e)}")

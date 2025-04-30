@@ -233,14 +233,13 @@ def generate_blog_node(state: Dict[str, Any]) -> Dict[str, Any]:
         3. Summary of the approach
         4. Key findings and their significance
         5. Conclusion with future implications
-        6. INCLUDE THE COMPLETE TECHNICAL ANALYSIS in a section titled "## Technical Analysis"
-           (copy the entire analysis verbatim - do not summarize or shorten it)
-        7. Include a "## References" section at the end with the paper title, authors, publication date, and URL
+        6. Include a "## References" section at the end with the paper title, authors, publication date, and URL
 
         Format the blog as Markdown with proper headers, links, and styling.
         Make sure to include the publication date in the post introduction and in the references.
-        The Technical Analysis section must appear as-is between the conclusion and references.
-        Do not omit any part of the technical analysis as it contains valuable in-depth information.
+
+        Note: The technical analysis will be added as a separate section automatically - 
+        you do not need to include it in your response.
         
         Blog Post:
         """)
