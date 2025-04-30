@@ -62,7 +62,8 @@ def ask_search_source_node(state: Dict[str, Any]) -> Dict[str, Any]:
     if state.get("search_source"):
         # Source already selected, proceed without interruption
         print("Search source already selected:", state.get("search_source"))
-        return {}
+        # Return empty dict instead of None to avoid warnings
+        return {"source_checked": True}
     else:
         # Signal to the agent/runner to ask the user
         print("Preparing question for search source selection.")

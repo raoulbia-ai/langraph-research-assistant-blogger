@@ -41,6 +41,14 @@ def create_workflow():
         """Check if we already have a selected paper to skip search and select steps"""
         if state.get("selected_paper") is not None:
             print("Using pre-loaded paper, skipping search and selection steps")
+            
+            # Ensure papers list exists even if we're skipping the search
+            # This prevents warnings about missing fields
+            if not state.get("papers") and state.get("selected_paper"):
+                papers = [state["selected_paper"]]
+                state["papers"] = papers
+                print("Added selected paper to papers list for workflow state")
+                
             return "analyze"  # Skip to analysis directly
         elif state.get("search_source"):
             # No selected paper but search source is set, go to search

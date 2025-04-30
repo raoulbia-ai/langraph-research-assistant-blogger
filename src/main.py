@@ -152,7 +152,7 @@ def run_workflow(topic: str, paper_index: int = 0, search_source: str = "arxiv",
         final_state["error"] = (final_state.get("error", "") + "\n" + error_msg).strip()
         return final_state
 
-def display_graph(query: str, search_source: str = "arxiv") -> int:
+def display_graph(query: str, search_source: str = "arxiv") -> tuple:
     """Display the paper graph for a query
     
     Args:
@@ -160,7 +160,7 @@ def display_graph(query: str, search_source: str = "arxiv") -> int:
         search_source: Source to search ("arxiv" or "google_scholar")
         
     Returns:
-        int: Number of papers found
+        tuple: (paper_count, paper_nodes) - Number of papers found and the list of paper nodes
     """
     try:
         # Create appropriate client and GraphBuilder
@@ -214,10 +214,10 @@ def display_graph(query: str, search_source: str = "arxiv") -> int:
                         
                 print(f"{i}. {node.paper.title} by {', '.join(node.paper.authors[:3])}{date_str}")
                 
-        return paper_count
+        return paper_count, paper_nodes
     except Exception as e:
         print(f"Error displaying graph: {str(e)}")
-        return 0
+        return 0, []
 
 def main() -> None:
     """Main entry point for the application"""
@@ -252,8 +252,8 @@ def main() -> None:
         else:
             print("Invalid selection. Please choose 1 for arXiv or 2 for Google Scholar.")
     
-    # Display graph and check if papers were found
-    paper_count = display_graph(topic, search_source)
+    # Display graph and check if papers were found - store paper_nodes
+    paper_count, paper_nodes = display_graph(topic, search_source)
     
     # If no papers found, prompt for a new search
     while paper_count == 0:
@@ -266,13 +266,13 @@ def main() -> None:
                 print("Empty search. Exiting.")
                 return
             # Keep the same search source
-            paper_count = display_graph(topic, search_source)
+            paper_count, paper_nodes = display_graph(topic, search_source)
             
         elif retry_choice == "2":
             # Switch source
             search_source = "google_scholar" if search_source == "arxiv" else "arxiv"
             print(f"Switching to {search_source}...")
-            paper_count = display_graph(topic, search_source)
+            paper_count, paper_nodes = display_graph(topic, search_source)
             
         else:
             print("Exiting.")
@@ -298,26 +298,26 @@ def main() -> None:
     if paper_index != -1:
         print("\nRunning workflow...")
         
-        # Get the selected paper to pass to the workflow
-        # This prevents a duplicate search by the workflow
+        # Get the selected paper from the papers we already displayed
+        # Instead of doing another search, use paper_nodes we already have
         selected_paper = None
         try:
-            if search_source.lower() == "google_scholar":
-                from utils.google_scholar_client import GoogleScholarClient
-                client = GoogleScholarClient()
-                all_papers = client.search_papers(topic)
-                if all_papers and 0 <= paper_index < len(all_papers):
-                    selected_paper = all_papers[paper_index]
-                    print(f"Using paper: {selected_paper.get('title', 'Unknown')}")
-            else:
-                from utils.arxiv_client import ArxivClient
-                client = ArxivClient()
-                all_papers = client.search_recent_papers(topic)
-                if all_papers and 0 <= paper_index < len(all_papers):
-                    selected_paper = all_papers[paper_index]
-                    print(f"Using paper: {selected_paper.get('title', 'Unknown')}")
+            # Since we've already displayed the papers in display_graph,
+            # we can directly get the selected paper from there
+            if paper_nodes and 0 <= paper_index < len(paper_nodes):
+                # Convert PaperNode to dict format for consistency
+                node = paper_nodes[paper_index]
+                selected_paper = {
+                    "id": node.paper.id,
+                    "title": node.paper.title,
+                    "summary": node.paper.abstract,
+                    "authors": node.paper.authors,
+                    "published": node.paper.published_date,
+                    "url": node.paper.url
+                }
+                print(f"Using paper: {selected_paper.get('title', 'Unknown')}")
         except Exception as e:
-            print(f"Warning: Failed to pre-load paper: {str(e)}")
+            print(f"Warning: Failed to use pre-selected paper: {str(e)}")
             # Continue without pre-loaded paper, workflow will handle search
         
         # Pass selected paper index, search source and pre-loaded paper (if available)
