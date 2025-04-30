@@ -44,60 +44,112 @@ def setup_environment() -> None:
         else:
             print("Warning: No valid API key found. Set OPENAI_API_KEY in environment or config.json")
 
-def run_workflow(topic: str, paper_index: int = 0) -> Dict[str, Any]:
-    """Run the research assistant workflow
-    
+def run_workflow(topic: str, paper_index: int = 0, search_source: str = "arxiv") -> Dict[str, Any]:
+    """Run the research assistant workflow.
+
     Args:
         topic: Research topic to search for
         paper_index: Index of the paper to analyze (0-based)
-        
+        search_source: Source to search ("arxiv" or "google_scholar")
+
     Returns:
         Final workflow state
     """
     # Create the workflow
     workflow = create_workflow()
-    
-    # Get papers first to ensure we have data before running workflow
-    try:
-        arxiv_client = ArxivClient()
-        papers = arxiv_client.search_recent_papers(topic)
-        
-        # Validate paper_index before running workflow
-        if paper_index < 0 or paper_index >= len(papers):
-            return {"error": f"Invalid paper index: {paper_index+1}. Only {len(papers)} papers available."}
-        
-        # Create initial state with pre-loaded papers
-        initial_state = {
-            "topic": topic,
-            "papers": papers,
-            "paper_index": paper_index,
-            "selected_paper": None,
-            "analysis": "",
-            "blog_post": "",
-            "error": None
-        }
-        
-        # Run the workflow
-        final_state = workflow.invoke(initial_state)
-        return final_state
-    except Exception as e:
-        error_msg = f"Error running workflow: {str(e)}"
-        print(error_msg)
-        return {"error": error_msg}
 
-def display_graph(query: str) -> int:
+    # Initial state with topic, paper index, and search source
+    initial_state = {
+        "topic": topic,
+        "paper_index": paper_index,
+        "search_source": search_source,  # Set from parameter now
+        "search_source_raw_input": None, # Not needed, but keep for compatibility
+        "interrupt_action": None,
+        "question_details": None,
+        "papers": [],
+        "selected_paper": None,
+        "analysis": "",
+        "blog_post": "",
+        "error": None
+    }
+
+    final_state = {}
+    try:
+        # Use stream to handle potential interruptions
+        for event in workflow.stream(initial_state):
+            # The event key is the node name, event value is the node's output
+            event_key = list(event.keys())[0]
+            event_value = event[event_key]
+            
+            # Update the conceptual final state with the latest output
+            final_state.update(event_value)
+
+            # Check if the graph signaled an interruption to ask a question
+            if final_state.get("interrupt_action") == "ask_question":
+                details = final_state.get("question_details", {})
+                question = details.get("question", "Missing question")
+                suggestions = details.get("suggestions", [])
+                target_key = details.get("target_state_key", "user_response") # Key to store raw response
+
+                # Display prompt and suggestions
+                print(f"\n{question}")
+                for suggestion in suggestions:
+                    print(suggestion)
+
+                # Get user input
+                user_response = input("Your choice: ").strip()
+
+                # Prepare input for the next step (process_source_selection_node)
+                # The graph expects the raw input under the target_key
+                next_step_input = {target_key: user_response}
+                
+                # Continue the stream, providing the user's response
+                # Note: We need to pass the *entire current state* plus the new input
+                # for the next step, but stream() takes only the input for the *next* node.
+                # LangGraph's stream implicitly handles state continuation.
+                # We just need to ensure the next node receives the raw input.
+                # The process_source_selection_node is designed to read `search_source_raw_input`.
+                # So, we update the state *before* the next iteration implicitly uses it.
+                initial_state[target_key] = user_response # Update state for next implicit step
+                final_state[target_key] = user_response # Keep track for final output if needed
+                final_state["interrupt_action"] = None # Clear the interrupt flag
+                final_state["question_details"] = None
+
+                print("Processing your selection...")
+                # The loop will continue, and the next node (process_source_selection)
+                # will pick up the raw input from the state.
+
+        # After the stream finishes
+        print("\nWorkflow finished.")
+        return final_state
+
+    except Exception as e:
+        error_msg = f"Error running workflow stream: {str(e)}"
+        print(error_msg)
+        final_state["error"] = (final_state.get("error", "") + "\n" + error_msg).strip()
+        return final_state
+
+def display_graph(query: str, search_source: str = "arxiv") -> int:
     """Display the paper graph for a query
     
     Args:
         query: Search query for papers
+        search_source: Source to search ("arxiv" or "google_scholar")
         
     Returns:
         int: Number of papers found
     """
     try:
-        # Create ArxivClient and GraphBuilder
-        arxiv_client = ArxivClient()
-        graph_builder = GraphBuilder(arxiv_client)
+        # Create appropriate client and GraphBuilder
+        if search_source.lower() == "google_scholar":
+            from utils.google_scholar_client import GoogleScholarClient
+            search_client = GoogleScholarClient()
+            source_name = "Google Scholar"
+        else:
+            search_client = ArxivClient()
+            source_name = "arXiv"
+            
+        graph_builder = GraphBuilder(search_client, search_source)
         
         # Build the graph
         graph = graph_builder.build_graph(query)
@@ -112,7 +164,7 @@ def display_graph(query: str) -> int:
         paper_count = len(paper_nodes)
         
         # Display graph info
-        print(f"\nGraph for query '{query}':")
+        print(f"\n{source_name} results for query '{query}':")
         print(f"Found {paper_count} papers")
         
         if paper_count > 0:
@@ -141,17 +193,48 @@ def main() -> None:
     if not topic:
         topic = default_query
     
+    # Ask user to select search source
+    print("\nSelect search source:")
+    print("1. arXiv (scientific papers)")
+    print("2. Google Scholar (broader academic content)")
+    
+    search_source = "arxiv"  # Default
+    while True:
+        source_choice = input("Enter your choice (1-2) [1]: ").strip()
+        if not source_choice or source_choice == "1":
+            search_source = "arxiv"
+            break
+        elif source_choice == "2":
+            search_source = "google_scholar"
+            break
+        else:
+            print("Invalid selection. Please choose 1 for arXiv or 2 for Google Scholar.")
+    
     # Display graph and check if papers were found
-    paper_count = display_graph(topic)
+    paper_count = display_graph(topic, search_source)
     
     # If no papers found, prompt for a new search
     while paper_count == 0:
-        print("\nNo papers found. Try a different search term.")
-        topic = input("Enter new research topic: ")
-        if not topic:
-            print("Empty search. Exiting.")
+        print("\nNo papers found. Try a different search term or source.")
+        retry_choice = input("Try again with: [1] New search term, [2] Different source, [3] Exit: ").strip()
+        
+        if retry_choice == "1":
+            topic = input("Enter new research topic: ")
+            if not topic:
+                print("Empty search. Exiting.")
+                return
+            # Keep the same search source
+            paper_count = display_graph(topic, search_source)
+            
+        elif retry_choice == "2":
+            # Switch source
+            search_source = "google_scholar" if search_source == "arxiv" else "arxiv"
+            print(f"Switching to {search_source}...")
+            paper_count = display_graph(topic, search_source)
+            
+        else:
+            print("Exiting.")
             return
-        paper_count = display_graph(topic)
     
     # Ask user which paper to analyze
     print("\nWhich paper would you like to analyze and generate a blog post for?")
@@ -172,8 +255,8 @@ def main() -> None:
     # Proceed only if a valid paper_index was set
     if paper_index != -1:
         print("\nRunning workflow...")
-        # Pass selected paper index to workflow
-        final_state = run_workflow(topic, paper_index)
+        # Pass selected paper index and search source to workflow
+        final_state = run_workflow(topic, paper_index, search_source)
         
         # Display results
         if final_state.get("error"):
