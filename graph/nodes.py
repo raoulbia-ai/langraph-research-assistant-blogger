@@ -200,11 +200,29 @@ def generate_blog_node(state: Dict[str, Any]) -> Dict[str, Any]:
         return {"blog_post": "", "error": "LLM initialization failed. Check API key."}
 
     try:
+        # Format the publication date if available
+        pub_date = paper.get("published", "")
+        formatted_date = ""
+        if pub_date:
+            try:
+                from datetime import datetime
+                if 'T' in pub_date:  # ISO format
+                    dt = datetime.fromisoformat(pub_date.replace('Z', '+00:00'))
+                    formatted_date = dt.strftime('%B %d, %Y')
+                elif '-' in pub_date:  # YYYY-MM-DD format
+                    dt = datetime.strptime(pub_date.split()[0], '%Y-%m-%d')
+                    formatted_date = dt.strftime('%B %d, %Y')
+                else:
+                    formatted_date = pub_date
+            except Exception:
+                formatted_date = pub_date
+
         prompt = ChatPromptTemplate.from_template("""
         Write a technical blog post based on this paper analysis:
 
         Paper: {title}
         Authors: {authors}
+        Publication Date: {pub_date}
         URL: {url}
         Analysis: {analysis}
 
@@ -214,9 +232,10 @@ def generate_blog_node(state: Dict[str, Any]) -> Dict[str, Any]:
         3. Summary of the approach
         4. Key findings and their significance
         5. Conclusion with future implications
-        6. Include a "References" section at the end with the paper URL 
+        6. Include a "References" section at the end with the paper title, authors, publication date, and URL
 
         Format the blog as Markdown with proper headers, links, and styling.
+        Make sure to include the publication date in the post introduction and in the references.
 
         Blog Post:
         """)
@@ -226,6 +245,7 @@ def generate_blog_node(state: Dict[str, Any]) -> Dict[str, Any]:
         blog = chain.invoke({
             "title": paper["title"],
             "authors": ", ".join(paper["authors"]),
+            "pub_date": formatted_date or "Date not available",
             "url": paper.get("url", "No URL available"),
             "analysis": analysis
         })

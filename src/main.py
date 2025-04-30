@@ -168,9 +168,28 @@ def display_graph(query: str, search_source: str = "arxiv") -> int:
         print(f"Found {paper_count} papers")
         
         if paper_count > 0:
-            # Display numbered list
+            # Display numbered list with publication dates
             for i, node in enumerate(paper_nodes, 1):
-                print(f"{i}. {node.paper.title} by {', '.join(node.paper.authors[:3])}")
+                # Format publication date or use fallback
+                pub_date = node.paper.published_date
+                date_str = ""
+                if pub_date:
+                    try:
+                        # Try to parse and format the date (handle different formats)
+                        from datetime import datetime
+                        if 'T' in pub_date:  # ISO format
+                            dt = datetime.fromisoformat(pub_date.replace('Z', '+00:00'))
+                            date_str = f" ({dt.strftime('%b %d, %Y')})"
+                        elif '-' in pub_date:  # YYYY-MM-DD format
+                            dt = datetime.strptime(pub_date.split()[0], '%Y-%m-%d')
+                            date_str = f" ({dt.strftime('%b %d, %Y')})"
+                        else:
+                            date_str = f" ({pub_date})"
+                    except Exception:
+                        # If date parsing fails, just show it as-is
+                        date_str = f" ({pub_date})"
+                        
+                print(f"{i}. {node.paper.title} by {', '.join(node.paper.authors[:3])}{date_str}")
                 
         return paper_count
     except Exception as e:
