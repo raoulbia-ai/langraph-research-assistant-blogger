@@ -40,19 +40,15 @@ def create_workflow():
     def has_selected_paper(state: Dict[str, Any]) -> str:
         """Check if we already have a selected paper to skip search and select steps"""
         if state.get("selected_paper") is not None:
-            print("Using pre-loaded paper, skipping search and selection steps")
-            
             # Ensure papers list exists even if we're skipping the search
             # This prevents warnings about missing fields
             if not state.get("papers") and state.get("selected_paper"):
                 papers = [state["selected_paper"]]
                 state["papers"] = papers
-                print("Added selected paper to papers list for workflow state")
                 
             return "analyze"  # Skip to analysis directly
         elif state.get("search_source"):
             # No selected paper but search source is set, go to search
-            print(f"Using pre-selected search source: {state.get('search_source')}")
             return "search"
         else:
             # Neither paper nor source is provided, start with source selection
@@ -68,6 +64,17 @@ def create_workflow():
             "analyze": "analyze"             # Skip to analysis directly
         }
     )
+    
+    # Handle empty responses from nodes more gracefully
+    def handle_node_output(state, output):
+        """Ensure node outputs are always dictionaries to prevent warnings"""
+        if output is None:
+            # Return empty dict instead of None
+            return {}
+        return output
+    
+    # Apply output handler to all nodes
+    workflow.set_node_wrapper(handle_node_output)
 
     # Define the rest of the workflow sequence
     workflow.add_edge("process_source", "search")

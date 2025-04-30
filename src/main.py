@@ -131,12 +131,6 @@ def run_workflow(topic: str, paper_index: int = 0, search_source: str = "arxiv",
         # After the stream finishes
         print("\nWorkflow finished.")
         
-        # Verify we have expected state fields
-        required_fields = ["papers", "selected_paper"]
-        for field in required_fields:
-            if field not in final_state or final_state[field] is None:
-                print(f"Warning: Expected field '{field}' missing or None in final state")
-        
         return final_state
 
     except Exception as e:
@@ -163,7 +157,7 @@ def display_graph(query: str, search_source: str = "arxiv") -> tuple:
         tuple: (paper_count, paper_nodes) - Number of papers found and the list of paper nodes
     """
     try:
-        # Create appropriate client and GraphBuilder
+        # Create appropriate client and GraphBuilder with minimal logging
         if search_source.lower() == "google_scholar":
             from utils.google_scholar_client import GoogleScholarClient
             search_client = GoogleScholarClient()
@@ -186,7 +180,7 @@ def display_graph(query: str, search_source: str = "arxiv") -> tuple:
         # Get accurate paper count
         paper_count = len(paper_nodes)
         
-        # Display graph info
+        # Display graph info - this is essential output for the user
         print(f"\n{source_name} results for query '{query}':")
         print(f"Found {paper_count} papers")
         

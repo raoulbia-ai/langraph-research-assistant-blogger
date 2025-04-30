@@ -30,14 +30,16 @@ def search_node(state: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Dict with 'papers' key containing search results, or 'error' key if failed.
     """
+    # Skip search if papers are already provided
+    if state.get("papers") and state.get("selected_paper"):
+        return {"papers": state.get("papers")}
+        
     topic = state.get("topic", "")
     search_source = state.get("search_source", "arxiv").lower() # Default to arxiv
     max_results = state.get("max_results", 5)
 
     if not topic:
         return {"papers": [], "error": "No search topic provided"}
-
-    print(f"--- Searching {search_source} for '{topic}' ---")
 
     try:
         if search_source == "google_scholar":
@@ -50,10 +52,8 @@ def search_node(state: Dict[str, Any]) -> Dict[str, Any]:
         else:
             return {"papers": [], "error": f"Invalid search source: {search_source}. Use 'arxiv' or 'google_scholar'."}
 
-        print(f"--- Found {len(papers)} papers from {search_source} ---")
         return {"papers": papers}
     except Exception as e:
-        print(f"Error during {search_source} search: {str(e)}")
         return {"papers": [], "error": f"Error searching {search_source}: {str(e)}"}
 
 # --- Node to ask user for search source ---
@@ -61,12 +61,10 @@ def ask_search_source_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """Checks if search source is set, if not, prepares details for a user prompt."""
     if state.get("search_source"):
         # Source already selected, proceed without interruption
-        print("Search source already selected:", state.get("search_source"))
-        # Return empty dict instead of None to avoid warnings
+        # Return non-empty dict to avoid warnings
         return {"source_checked": True}
     else:
         # Signal to the agent/runner to ask the user
-        print("Preparing question for search source selection.")
         return {
             "interrupt_action": "ask_question",
             "question_details": {
@@ -88,19 +86,15 @@ def process_source_selection_node(state: Dict[str, Any]) -> Dict[str, Any]:
         # This shouldn't happen if the graph logic is correct, but handle defensively
         error_msg = (error_msg + "\n" if error_msg else "") + "No search source selection received."
         search_source = "arxiv" # Default if something went wrong
-        print("Warning: No raw input for search source found, defaulting to arXiv.")
     else:
         raw_input_lower = raw_input.lower()
         if "arxiv" in raw_input_lower or "1" in raw_input_lower:
             search_source = "arxiv"
-            print("Processed selection: arXiv")
         elif "google scholar" in raw_input_lower or "scholar" in raw_input_lower or "2" in raw_input_lower:
             search_source = "google_scholar"
-            print("Processed selection: Google Scholar")
         else:
             error_msg = (error_msg + "\n" if error_msg else "") + f"Invalid selection: '{raw_input}'. Defaulting to arXiv."
             search_source = "arxiv" # Default on invalid input
-            print(f"Warning: Invalid search source selection '{raw_input}', defaulting to arXiv.")
 
     # Prepare state updates, clearing interrupt flags and raw input
     updates = {

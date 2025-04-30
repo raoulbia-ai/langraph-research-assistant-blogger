@@ -38,24 +38,17 @@ class ArxivClient:
                 # Use the original topic if we couldn't extract good terms
                 search_query = topic
             
-            # Try with date filter first (get more results for filtering)
+            # Always include date filter for 2025 onwards
             search = arxiv.Search(
                 query=f"{search_query} AND submittedDate:[2025 TO 2099]",
-                max_results=max(max_results * 2, 10),  # Get more results for filtering
+                max_results=max(max_results * 3, 15),  # Get more results for filtering
                 sort_by=arxiv.SortCriterion.SubmittedDate
             )
             
             # Check if there are any results
             results = list(self.client.results(search))
             
-            # If no results, try without date filter
-            if not results:
-                search = arxiv.Search(
-                    query=search_query,
-                    max_results=max(max_results * 2, 10),  # Get more results for filtering
-                    sort_by=arxiv.SortCriterion.SubmittedDate
-                )
-                results = list(self.client.results(search))
+            # No fallback to pre-2025 papers per new requirements
                 
             # Process and score results for relevance
             scored_papers = []
