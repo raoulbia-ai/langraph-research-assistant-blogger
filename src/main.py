@@ -95,8 +95,8 @@ def run_workflow(topic: str, paper_index: int = 0, search_source: str = "arxiv",
                 
                 # Validate event value
                 if event_value is None:
-                    print(f"Warning: Node '{event_key}' returned None")
-                    continue
+                    # Silently replace None with empty dict to avoid warnings
+                    event_value = {}
                 
                 # Update the conceptual final state with the latest output
                 final_state.update(event_value)

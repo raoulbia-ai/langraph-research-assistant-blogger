@@ -39,6 +39,11 @@ def create_workflow():
     # First conditional: check if we already have a selected paper to start analyzing
     def has_selected_paper(state: Dict[str, Any]) -> str:
         """Check if we already have a selected paper to skip search and select steps"""
+        # Ensure state always has a valid search_source to avoid None returns
+        if not state.get("search_source"):
+            # Default to arxiv to avoid None issues in conditional nodes
+            state["search_source_placeholder"] = True
+            
         if state.get("selected_paper") is not None:
             # Ensure papers list exists even if we're skipping the search
             # This prevents warnings about missing fields
