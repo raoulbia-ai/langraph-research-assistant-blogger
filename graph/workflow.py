@@ -65,16 +65,8 @@ def create_workflow():
         }
     )
     
-    # Handle empty responses from nodes more gracefully
-    def handle_node_output(state, output):
-        """Ensure node outputs are always dictionaries to prevent warnings"""
-        if output is None:
-            # Return empty dict instead of None
-            return {}
-        return output
-    
-    # Apply output handler to all nodes
-    workflow.set_node_wrapper(handle_node_output)
+    # Simply check for None outputs in each node instead of using set_node_wrapper
+    # The set_node_wrapper method isn't available in this version of langgraph
 
     # Define the rest of the workflow sequence
     workflow.add_edge("process_source", "search")

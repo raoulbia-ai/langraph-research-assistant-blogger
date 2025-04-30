@@ -277,14 +277,29 @@ def main() -> None:
     # Process user selection with error handling
     paper_index = -1 # Initialize with invalid index
     while True: # Loop until valid input is received
-        paper_choice = input(f"Enter paper number (1-{paper_count}): ").strip()
+        paper_choice = input(f"Enter paper number (1-{paper_count}) or 9 to enter a new search: ").strip()
         try:
-            selected_index = int(paper_choice) - 1
-            if 0 <= selected_index < paper_count:
-                paper_index = selected_index
+            selected_index = int(paper_choice)
+            
+            # Option 9: Enter a new search
+            if selected_index == 9:
+                new_topic = input("Enter new search topic: ")
+                if new_topic.strip():
+                    topic = new_topic
+                    # Re-run the search with the new topic
+                    paper_count, paper_nodes = display_graph(topic, search_source)
+                    if paper_count == 0:
+                        print("No papers found with this search. Please try again.")
+                        continue
+                else:
+                    print("Empty search term. Please try again.")
+                    continue
+            # Normal paper selection
+            elif 1 <= selected_index <= paper_count:
+                paper_index = selected_index - 1
                 break # Exit loop on valid selection
             else:
-                print(f"Invalid paper selection. Please choose a number between 1 and {paper_count}.")
+                print(f"Invalid paper selection. Please choose a number between 1 and {paper_count}, or 9 for a new search.")
         except ValueError:
             print("Invalid input. Please enter a number.")
 
