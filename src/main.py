@@ -44,11 +44,12 @@ def setup_environment() -> None:
         else:
             print("Warning: No valid API key found. Set OPENAI_API_KEY in environment or config.json")
 
-def run_workflow(topic: str) -> Dict[str, Any]:
+def run_workflow(topic: str, paper_index: int = 0) -> Dict[str, Any]:
     """Run the research assistant workflow
     
     Args:
         topic: Research topic to search for
+        paper_index: Index of the paper to analyze (0-based)
         
     Returns:
         Final workflow state
@@ -56,29 +57,42 @@ def run_workflow(topic: str) -> Dict[str, Any]:
     # Create the workflow
     workflow = create_workflow()
     
-    # Create initial state
-    initial_state = {
-        "topic": topic,
-        "papers": [],
-        "selected_paper": None,
-        "analysis": "",
-        "blog_post": "",
-        "error": None
-    }
-    
+    # Get papers first to ensure we have data before running workflow
     try:
+        arxiv_client = ArxivClient()
+        papers = arxiv_client.search_recent_papers(topic)
+        
+        # Validate paper_index before running workflow
+        if paper_index < 0 or paper_index >= len(papers):
+            return {"error": f"Invalid paper index: {paper_index+1}. Only {len(papers)} papers available."}
+        
+        # Create initial state with pre-loaded papers
+        initial_state = {
+            "topic": topic,
+            "papers": papers,
+            "paper_index": paper_index,
+            "selected_paper": None,
+            "analysis": "",
+            "blog_post": "",
+            "error": None
+        }
+        
         # Run the workflow
         final_state = workflow.invoke(initial_state)
         return final_state
     except Exception as e:
-        print(f"Error running workflow: {str(e)}")
-        return {"error": str(e)}
+        error_msg = f"Error running workflow: {str(e)}"
+        print(error_msg)
+        return {"error": error_msg}
 
-def display_graph(query: str) -> None:
+def display_graph(query: str) -> int:
     """Display the paper graph for a query
     
     Args:
         query: Search query for papers
+        
+    Returns:
+        int: Number of papers found
     """
     try:
         # Create ArxivClient and GraphBuilder
@@ -88,16 +102,28 @@ def display_graph(query: str) -> None:
         # Build the graph
         graph = graph_builder.build_graph(query)
         
-        # Display graph info
-        print(f"\nGraph for query '{query}':")
-        print(f"Found {len(graph) - 1} papers") # -1 for root node
-        
-        # Display nodes
+        # Collect paper nodes
+        paper_nodes = []
         for node_id, node in graph.items():
             if hasattr(node, 'paper'):
-                print(f"- {node.paper.title} by {', '.join(node.paper.authors[:3])}")
+                paper_nodes.append(node)
+        
+        # Get accurate paper count
+        paper_count = len(paper_nodes)
+        
+        # Display graph info
+        print(f"\nGraph for query '{query}':")
+        print(f"Found {paper_count} papers")
+        
+        if paper_count > 0:
+            # Display numbered list
+            for i, node in enumerate(paper_nodes, 1):
+                print(f"{i}. {node.paper.title} by {', '.join(node.paper.authors[:3])}")
+                
+        return paper_count
     except Exception as e:
         print(f"Error displaying graph: {str(e)}")
+        return 0
 
 def main() -> None:
     """Main entry point for the application"""
@@ -115,16 +141,39 @@ def main() -> None:
     if not topic:
         topic = default_query
     
-    # Display graph
-    display_graph(topic)
+    # Display graph and check if papers were found
+    paper_count = display_graph(topic)
     
-    # Ask if user wants to run workflow
-    print("\nDo you want to analyze the first paper and generate a blog post?")
-    choice = input("Enter 'y' to continue: ")
+    # If no papers found, prompt for a new search
+    while paper_count == 0:
+        print("\nNo papers found. Try a different search term.")
+        topic = input("Enter new research topic: ")
+        if not topic:
+            print("Empty search. Exiting.")
+            return
+        paper_count = display_graph(topic)
     
-    if choice.lower() == 'y':
+    # Ask user which paper to analyze
+    print("\nWhich paper would you like to analyze and generate a blog post for?")
+    # Process user selection with error handling
+    paper_index = -1 # Initialize with invalid index
+    while True: # Loop until valid input is received
+        paper_choice = input(f"Enter paper number (1-{paper_count}): ").strip()
+        try:
+            selected_index = int(paper_choice) - 1
+            if 0 <= selected_index < paper_count:
+                paper_index = selected_index
+                break # Exit loop on valid selection
+            else:
+                print(f"Invalid paper selection. Please choose a number between 1 and {paper_count}.")
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+
+    # Proceed only if a valid paper_index was set
+    if paper_index != -1:
         print("\nRunning workflow...")
-        final_state = run_workflow(topic)
+        # Pass selected paper index to workflow
+        final_state = run_workflow(topic, paper_index)
         
         # Display results
         if final_state.get("error"):
@@ -137,12 +186,16 @@ def main() -> None:
             print(final_state.get("blog_post", "No blog post generated"))
             
             # Offer to save
-            save = input("\nSave blog post to file? (y/n): ")
+            save = input("\nSave blog post to file? (y/n): ").strip()
             if save.lower() == 'y':
-                filename = f"blog_{topic.replace(' ', '_')}.md"
-                with open(filename, "w") as f:
-                    f.write(final_state.get("blog_post", ""))
-                print(f"Blog post saved to {filename}")
+                filename = f"blog_{topic.replace(' ', '_')}_{paper_index+1}.md" # Add paper index to filename
+                filepath = Path(project_root) / filename # Save in project root
+                try:
+                    with open(filepath, "w") as f:
+                        f.write(final_state.get("blog_post", ""))
+                    print(f"Blog post saved to {filepath}")
+                except Exception as e:
+                    print(f"Error saving file: {str(e)}")
 
 if __name__ == "__main__":
     main()

@@ -24,15 +24,29 @@ class ArxivClient:
             List[Dict[str, Any]]: List of paper metadata dictionaries
         """
         try:
+            # Try with date filter first
             search = arxiv.Search(
-                query=topic,
+                query=f"{topic} AND submittedDate:[2025 TO 2099]",
                 max_results=max_results,
                 sort_by=arxiv.SortCriterion.SubmittedDate
             )
             
-            results = []
-            for paper in self.client.results(search):
-                results.append({
+            # Check if there are any results
+            results = list(self.client.results(search))
+            
+            # If no results, try without date filter
+            if not results:
+                search = arxiv.Search(
+                    query=topic,
+                    max_results=max_results,
+                    sort_by=arxiv.SortCriterion.SubmittedDate
+                )
+                results = list(self.client.results(search))
+                
+            # Process results
+            processed_results = []
+            for paper in results:
+                processed_results.append({
                     "id": paper.entry_id,
                     "title": paper.title,
                     "summary": paper.summary,
@@ -41,7 +55,7 @@ class ArxivClient:
                     "url": paper.pdf_url
                 })
                 
-            return results
+            return processed_results
         except Exception as e:
             print(f"Error searching ArXiv: {str(e)}")
             return []

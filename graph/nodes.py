@@ -39,18 +39,25 @@ def search_node(state: Dict[str, Any]) -> Dict[str, Any]:
         return {"papers": [], "error": f"Error searching papers: {str(e)}"}
 
 def select_paper_node(state: Dict[str, Any]) -> Dict[str, Any]:
-    """Node to select the first paper
+    """Node to select a paper based on the paper_index
     
     Args:
-        state: Current workflow state with 'papers' key
+        state: Current workflow state with 'papers' key and 'paper_index' key
         
     Returns:
         Dict with 'selected_paper' key or error
     """
     papers = state.get("papers", [])
+    paper_index = state.get("paper_index", 0)
+    
     if not papers:
         return {"selected_paper": None, "error": "No papers found"}
-    return {"selected_paper": papers[0]}
+    
+    # Ensure index is within bounds
+    if paper_index < 0 or paper_index >= len(papers):
+        paper_index = 0
+        
+    return {"selected_paper": papers[paper_index]}
 
 def analyze_paper_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """Node to analyze the selected paper
