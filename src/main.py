@@ -234,14 +234,14 @@ def main() -> None:
     print("1. arXiv (scientific papers)")
     print("2. Google Scholar (broader academic content)")
     
-    search_source = "arxiv"  # Default
+    search_source = "google_scholar"  # Default to Google Scholar
     while True:
-        source_choice = input("Enter your choice (1-2) [1]: ").strip()
-        if not source_choice or source_choice == "1":
-            search_source = "arxiv"
-            break
-        elif source_choice == "2":
+        source_choice = input("Enter your choice (1-2) [2]: ").strip()
+        if not source_choice or source_choice == "2":
             search_source = "google_scholar"
+            break
+        elif source_choice == "1":
+            search_source = "arxiv"
             break
         else:
             print("Invalid selection. Please choose 1 for arXiv or 2 for Google Scholar.")

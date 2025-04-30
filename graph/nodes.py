@@ -69,7 +69,7 @@ def ask_search_source_node(state: Dict[str, Any]) -> Dict[str, Any]:
             "interrupt_action": "ask_question",
             "question_details": {
                 "question": "Select the search source:",
-                "suggestions": ["1. arXiv", "2. Google Scholar"],
+                "suggestions": ["1. Google Scholar (default)", "2. arXiv"],
                 # Agent should store the raw user response here
                 "target_state_key": "search_source_raw_input"
             }
@@ -85,16 +85,16 @@ def process_source_selection_node(state: Dict[str, Any]) -> Dict[str, Any]:
     if not raw_input:
         # This shouldn't happen if the graph logic is correct, but handle defensively
         error_msg = (error_msg + "\n" if error_msg else "") + "No search source selection received."
-        search_source = "arxiv" # Default if something went wrong
+        search_source = "google_scholar" # Default to Google Scholar if something went wrong
     else:
         raw_input_lower = raw_input.lower()
-        if "arxiv" in raw_input_lower or "1" in raw_input_lower:
+        if "arxiv" in raw_input_lower or "2" in raw_input_lower:
             search_source = "arxiv"
-        elif "google scholar" in raw_input_lower or "scholar" in raw_input_lower or "2" in raw_input_lower:
+        elif "google scholar" in raw_input_lower or "scholar" in raw_input_lower or "1" in raw_input_lower:
             search_source = "google_scholar"
         else:
-            error_msg = (error_msg + "\n" if error_msg else "") + f"Invalid selection: '{raw_input}'. Defaulting to arXiv."
-            search_source = "arxiv" # Default on invalid input
+            error_msg = (error_msg + "\n" if error_msg else "") + f"Invalid selection: '{raw_input}'. Defaulting to Google Scholar."
+            search_source = "google_scholar" # Default to Google Scholar on invalid input
 
     # Prepare state updates, clearing interrupt flags and raw input
     updates = {
