@@ -128,6 +128,7 @@ def generate_blog_node(state: Dict[str, Any]) -> Dict[str, Any]:
 
         Paper: {title}
         Authors: {authors}
+        URL: {url}
         Analysis: {analysis}
 
         Create a 500-word technical blog post with:
@@ -136,6 +137,9 @@ def generate_blog_node(state: Dict[str, Any]) -> Dict[str, Any]:
         3. Summary of the approach
         4. Key findings and their significance
         5. Conclusion with future implications
+        6. Include a "References" section at the end with the paper URL 
+
+        Format the blog as Markdown with proper headers, links, and styling.
 
         Blog Post:
         """)
@@ -145,6 +149,7 @@ def generate_blog_node(state: Dict[str, Any]) -> Dict[str, Any]:
         blog = chain.invoke({
             "title": paper["title"],
             "authors": ", ".join(paper["authors"]),
+            "url": paper.get("url", "No URL available"),
             "analysis": analysis
         })
 

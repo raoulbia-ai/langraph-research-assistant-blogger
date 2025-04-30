@@ -189,7 +189,11 @@ def main() -> None:
             save = input("\nSave blog post to file? (y/n): ").strip()
             if save.lower() == 'y':
                 filename = f"blog_{topic.replace(' ', '_')}_{paper_index+1}.md" # Add paper index to filename
-                filepath = Path(project_root) / filename # Save in project root
+                # Save in blog_posts directory
+                blog_dir = Path(project_root) / "blog_posts"
+                # Create the directory if it doesn't exist
+                blog_dir.mkdir(exist_ok=True)
+                filepath = blog_dir / filename
                 try:
                     with open(filepath, "w") as f:
                         f.write(final_state.get("blog_post", ""))
