@@ -3,7 +3,7 @@ import json
 import sys
 from pathlib import Path
 from dotenv import load_dotenv
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 # Add project root to path so imports work correctly
 project_root = str(Path(__file__).parent.parent)
@@ -44,13 +44,15 @@ def setup_environment() -> None:
         else:
             print("Warning: No valid API key found. Set OPENAI_API_KEY in environment or config.json")
 
-def run_workflow(topic: str, paper_index: int = 0, search_source: str = "arxiv") -> Dict[str, Any]:
+def run_workflow(topic: str, paper_index: int = 0, search_source: str = "arxiv", 
+               selected_paper: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Run the research assistant workflow.
 
     Args:
         topic: Research topic to search for
         paper_index: Index of the paper to analyze (0-based)
         search_source: Source to search ("arxiv" or "google_scholar")
+        selected_paper: Optional pre-loaded paper data to avoid duplicate search
 
     Returns:
         Final workflow state
@@ -67,11 +69,16 @@ def run_workflow(topic: str, paper_index: int = 0, search_source: str = "arxiv")
         "interrupt_action": None,
         "question_details": None,
         "papers": [],
-        "selected_paper": None,
+        "selected_paper": selected_paper,  # Can be pre-loaded to skip search
         "analysis": "",
         "blog_post": "",
         "error": None
     }
+    
+    # If we have a selected paper but no papers list, create a single-item list
+    if selected_paper is not None and not initial_state["papers"]:
+        initial_state["papers"] = [selected_paper]
+        print("Pre-loaded selected paper, will skip search step")
 
     final_state = {}
     try:
@@ -290,9 +297,32 @@ def main() -> None:
     # Proceed only if a valid paper_index was set
     if paper_index != -1:
         print("\nRunning workflow...")
-        # Pass selected paper index and search source to workflow
+        
+        # Get the selected paper to pass to the workflow
+        # This prevents a duplicate search by the workflow
+        selected_paper = None
         try:
-            final_state = run_workflow(topic, paper_index, search_source)
+            if search_source.lower() == "google_scholar":
+                from utils.google_scholar_client import GoogleScholarClient
+                client = GoogleScholarClient()
+                all_papers = client.search_papers(topic)
+                if all_papers and 0 <= paper_index < len(all_papers):
+                    selected_paper = all_papers[paper_index]
+                    print(f"Using paper: {selected_paper.get('title', 'Unknown')}")
+            else:
+                from utils.arxiv_client import ArxivClient
+                client = ArxivClient()
+                all_papers = client.search_recent_papers(topic)
+                if all_papers and 0 <= paper_index < len(all_papers):
+                    selected_paper = all_papers[paper_index]
+                    print(f"Using paper: {selected_paper.get('title', 'Unknown')}")
+        except Exception as e:
+            print(f"Warning: Failed to pre-load paper: {str(e)}")
+            # Continue without pre-loaded paper, workflow will handle search
+        
+        # Pass selected paper index, search source and pre-loaded paper (if available)
+        try:
+            final_state = run_workflow(topic, paper_index, search_source, selected_paper)
             
             # Display results
             if final_state and final_state.get("error"):

@@ -36,24 +36,28 @@ def create_workflow():
     workflow.add_node("analyze", analyze_paper_node)
     workflow.add_node("blog", generate_blog_node)
 
-    # Define conditional branching based on whether search_source is already set
-    def has_search_source(state: Dict[str, Any]) -> str:
-        """Check if search source is already set in the state"""
-        if state.get("search_source"):
-            # Skip to search directly if source is already provided
+    # First conditional: check if we already have a selected paper to start analyzing
+    def has_selected_paper(state: Dict[str, Any]) -> str:
+        """Check if we already have a selected paper to skip search and select steps"""
+        if state.get("selected_paper") is not None:
+            print("Using pre-loaded paper, skipping search and selection steps")
+            return "analyze"  # Skip to analysis directly
+        elif state.get("search_source"):
+            # No selected paper but search source is set, go to search
             print(f"Using pre-selected search source: {state.get('search_source')}")
             return "search"
         else:
-            # Start interactive selection if no source is specified
+            # Neither paper nor source is provided, start with source selection
             return "ask_source"
 
-    # Entry conditional on whether search source is already set
+    # Entry conditional for the whole workflow
     workflow.add_conditional_edges(
         "ask_source",
-        has_search_source,
+        has_selected_paper,
         {
-            "ask_source": "process_source",  # Continue with interactive selection
-            "search": "search"               # Skip to search directly
+            "ask_source": "process_source",  # Start with source selection
+            "search": "search",              # Skip to search directly
+            "analyze": "analyze"             # Skip to analysis directly
         }
     )
 
