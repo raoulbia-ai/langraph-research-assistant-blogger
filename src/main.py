@@ -77,12 +77,26 @@ def run_workflow(topic: str, paper_index: int = 0, search_source: str = "arxiv")
     try:
         # Use stream to handle potential interruptions
         for event in workflow.stream(initial_state):
-            # The event key is the node name, event value is the node's output
-            event_key = list(event.keys())[0]
-            event_value = event[event_key]
-            
-            # Update the conceptual final state with the latest output
-            final_state.update(event_value)
+            if not event:
+                print("Warning: Received empty event from workflow")
+                continue
+                
+            try:
+                # The event key is the node name, event value is the node's output
+                event_key = list(event.keys())[0]
+                event_value = event[event_key]
+                
+                # Validate event value
+                if event_value is None:
+                    print(f"Warning: Node '{event_key}' returned None")
+                    continue
+                
+                # Update the conceptual final state with the latest output
+                final_state.update(event_value)
+            except (KeyError, TypeError, IndexError) as e:
+                print(f"Warning: Could not process event: {str(e)}")
+                print(f"Event type: {type(event)}")
+                continue
 
             # Check if the graph signaled an interruption to ask a question
             if final_state.get("interrupt_action") == "ask_question":
@@ -99,33 +113,35 @@ def run_workflow(topic: str, paper_index: int = 0, search_source: str = "arxiv")
                 # Get user input
                 user_response = input("Your choice: ").strip()
 
-                # Prepare input for the next step (process_source_selection_node)
-                # The graph expects the raw input under the target_key
-                next_step_input = {target_key: user_response}
-                
-                # Continue the stream, providing the user's response
-                # Note: We need to pass the *entire current state* plus the new input
-                # for the next step, but stream() takes only the input for the *next* node.
-                # LangGraph's stream implicitly handles state continuation.
-                # We just need to ensure the next node receives the raw input.
-                # The process_source_selection_node is designed to read `search_source_raw_input`.
-                # So, we update the state *before* the next iteration implicitly uses it.
+                # Update state with the user's response
                 initial_state[target_key] = user_response # Update state for next implicit step
                 final_state[target_key] = user_response # Keep track for final output if needed
                 final_state["interrupt_action"] = None # Clear the interrupt flag
                 final_state["question_details"] = None
 
                 print("Processing your selection...")
-                # The loop will continue, and the next node (process_source_selection)
-                # will pick up the raw input from the state.
 
         # After the stream finishes
         print("\nWorkflow finished.")
+        
+        # Verify we have expected state fields
+        required_fields = ["papers", "selected_paper"]
+        for field in required_fields:
+            if field not in final_state or final_state[field] is None:
+                print(f"Warning: Expected field '{field}' missing or None in final state")
+        
         return final_state
 
     except Exception as e:
+        import traceback
         error_msg = f"Error running workflow stream: {str(e)}"
         print(error_msg)
+        print(f"Error type: {type(e).__name__}")
+        print(f"Error trace: {traceback.format_exc()}")
+        
+        # Try to return a meaningful error state
+        if not final_state:
+            final_state = {}
         final_state["error"] = (final_state.get("error", "") + "\n" + error_msg).strip()
         return final_state
 
@@ -275,33 +291,44 @@ def main() -> None:
     if paper_index != -1:
         print("\nRunning workflow...")
         # Pass selected paper index and search source to workflow
-        final_state = run_workflow(topic, paper_index, search_source)
-        
-        # Display results
-        if final_state.get("error"):
-            print(f"\nError: {final_state['error']}")
-        else:
-            print("\n=== Analysis ===")
-            print(final_state.get("analysis", "No analysis generated"))
+        try:
+            final_state = run_workflow(topic, paper_index, search_source)
             
-            print("\n=== Blog Post ===")
-            print(final_state.get("blog_post", "No blog post generated"))
-            
-            # Offer to save
-            save = input("\nSave blog post to file? (y/n): ").strip()
-            if save.lower() == 'y':
-                filename = f"blog_{topic.replace(' ', '_')}_{paper_index+1}.md" # Add paper index to filename
-                # Save in blog_posts directory
-                blog_dir = Path(project_root) / "blog_posts"
-                # Create the directory if it doesn't exist
-                blog_dir.mkdir(exist_ok=True)
-                filepath = blog_dir / filename
-                try:
-                    with open(filepath, "w") as f:
-                        f.write(final_state.get("blog_post", ""))
-                    print(f"Blog post saved to {filepath}")
-                except Exception as e:
-                    print(f"Error saving file: {str(e)}")
+            # Display results
+            if final_state and final_state.get("error"):
+                print(f"\nError: {final_state['error']}")
+                return  # Exit if there's an error
+            elif final_state:
+                print("\n=== Analysis ===")
+                print(final_state.get("analysis", "No analysis generated"))
+                
+                print("\n=== Blog Post ===")
+                print(final_state.get("blog_post", "No blog post generated"))
+                
+                # Offer to save only if we have content
+                if final_state.get("blog_post"):
+                    save = input("\nSave blog post to file? (y/n): ").strip()
+                    if save.lower() == 'y':
+                        filename = f"blog_{topic.replace(' ', '_')}_{paper_index+1}.md" # Add paper index to filename
+                        # Save in blog_posts directory
+                        blog_dir = Path(project_root) / "blog_posts"
+                        # Create the directory if it doesn't exist
+                        blog_dir.mkdir(exist_ok=True)
+                        filepath = blog_dir / filename
+                        try:
+                            with open(filepath, "w") as f:
+                                f.write(final_state.get("blog_post", ""))
+                            print(f"Blog post saved to {filepath}")
+                        except Exception as e:
+                            print(f"Error saving file: {str(e)}")
+            else:
+                print("\nError: Workflow did not return any results. There might be an issue with the search source.")
+                return
+        except Exception as e:
+            import traceback
+            print(f"\nError running workflow: {str(e)}")
+            print(traceback.format_exc())
+            return
 
 if __name__ == "__main__":
     main()
