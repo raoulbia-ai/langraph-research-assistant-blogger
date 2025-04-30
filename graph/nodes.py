@@ -149,17 +149,23 @@ def analyze_paper_node(state: Dict[str, Any]) -> Dict[str, Any]:
 
     try:
         prompt = ChatPromptTemplate.from_template("""
-        Analyze the following research paper:
+        Analyze the following research paper thoroughly, going deep into technical details:
 
         Title: {title}
         Authors: {authors}
         Summary: {summary}
 
-        Provide a concise analysis covering:
-        1. Main research question
-        2. Key methodology
-        3. Primary findings
-        4. Implications for the field
+        Provide a comprehensive technical analysis covering:
+        1. Main research question and its significance within the field
+        2. Detailed methodology, including specific techniques, algorithms, or frameworks used
+        3. Technical specifications of any models, systems, or experimental setups
+        4. Primary findings with quantitative results when available
+        5. Technical challenges addressed and solutions proposed
+        6. Limitations from a technical perspective
+        7. Implications for the field and potential future technical directions
+
+        Include specific technical terms, metrics, and implementation details that would be valuable 
+        to practitioners and researchers. Don't simplify or gloss over technical aspects.
 
         Analysis:
         """)
@@ -221,17 +227,21 @@ def generate_blog_node(state: Dict[str, Any]) -> Dict[str, Any]:
         URL: {url}
         Analysis: {analysis}
 
-        Create a 500-word technical blog post with:
-        1. A catchy title
+        Create a comprehensive technical blog post with:
+        1. A catchy title (use # for main title)
         2. Brief introduction to the problem
         3. Summary of the approach
         4. Key findings and their significance
         5. Conclusion with future implications
-        6. Include a "References" section at the end with the paper title, authors, publication date, and URL
+        6. INCLUDE THE COMPLETE TECHNICAL ANALYSIS in a section titled "## Technical Analysis"
+           (copy the entire analysis verbatim - do not summarize or shorten it)
+        7. Include a "## References" section at the end with the paper title, authors, publication date, and URL
 
         Format the blog as Markdown with proper headers, links, and styling.
         Make sure to include the publication date in the post introduction and in the references.
-
+        The Technical Analysis section must appear as-is between the conclusion and references.
+        Do not omit any part of the technical analysis as it contains valuable in-depth information.
+        
         Blog Post:
         """)
 
