@@ -9,7 +9,7 @@ from typing import Dict, Any, Optional
 project_root = str(Path(__file__).parent.parent)
 sys.path.insert(0, project_root)
 
-from graph.workflow import create_workflow
+from src.graph.workflow import create_workflow
 from utils.arxiv_client import ArxivClient
 from src.graph.graph_builder import GraphBuilder
 from src.graph.domain import WorkflowState

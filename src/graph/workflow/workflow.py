@@ -1,6 +1,6 @@
 from langgraph.graph import StateGraph, END
 from typing import TypedDict, List, Optional, Dict, Any
-from graph.nodes import (
+from src.graph.workflow.nodes import (
     search_node,
     select_paper_node,
     analyze_paper_node,
