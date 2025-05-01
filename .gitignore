@@ -10,3 +10,4 @@ venv/
 *.sqlite
 blog_posts/
 papers/
+**/.claude/settings.local.json
